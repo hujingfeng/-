@@ -1,0 +1,121 @@
+一、流水灯设计思路
+1.实现4盏LED灯依次隔1s亮灭，即周期为1s;
+2.计算出频率f为1/T=1Hz；
+3.设置计数器cnt，当检测到clk上升沿时开始计数，当cnt计数到24_999_999时，clk_4跳变为1，LED灯亮起，当cnt计数
+49_999_999时，clk_4置0，LED灯熄灭。
+4.给LED赋初值4'b0001,第一盏灯亮。
+5.利用位拼接，实现循环。
+二、位拼接的方法
+若输入a=4'b1010,b=3'b101,c=4'b0101,想要使输出d=5'b10001用位拼接，符号“{}”：d<={b[2:1],c[1],a[2:1]}
+即把b的低1~2位10，c的低1位0，a的低1~2位01拼接起来，得到10001。
+流水灯
+4'b0001
+4'b0010
+4'b0100
+4'b1000
+相当于把低三位左移，并把最高位放在最低位。
+用位拼接可写为：led<={led[2:0],led[3]};
+低三位最高位
+三、实验代码
+1.时钟分频：
+a.程序文件
+module clk(
+input wire clk,//输入线型
+input wire rst_n,
+output reg clk_4//输出定义为寄存器型
+    );
+reg[3:0] cnt;//中括号定义位宽，定义中间变量cnt
+always@(posedge clk)
+if(rst_n==0)
+cnt <= 0;//复位为0，计数器也为0
+else if(cnt==3)//当计数器=3时清零
+cnt <= 0;
+else
+cnt <= cnt+1;//计数器自加1
+always@(posedge clk)
+if(rst_n==0)
+clk_4<=0;//复位为0.clk_4为0
+else if(cnt==1)
+clk_4<=1;//当计数器为1时，时钟跳变为1
+else if(cnt==3)
+clk_4<=0;//当计数器为3时，时钟跳变为0
+endmodule
+b.测试文件
+timescale 1ns/1ns
+module tb_div_clk();
+reg clk;
+reg rst_n;
+wire clk_4;
+initial
+  begin
+  clk=0;
+  rst_n=0;
+  #100;
+  rst_n=1;
+  end
+ always #5 clk=~clk;
+ 
+ div_clk div_clk_inst(
+ .clk(clk),
+ .rst_n(rst_n),
+ 
+ .clk_4(clk_4)
+ );
+ endmodule
+ 2.流水灯
+ a.程序文件
+ module LSD(
+ input wire clk,
+ input wire rst_n,
+ output reg[3:0] led
+ );
+ reg[25:0] cnt;
+ reg clk_4;
+ always@(posedge clk)
+  if(rst_n==0)
+  cnt<=0;
+  else if(cnt==49_999_999)
+  cnt<=0;
+  else
+  cnt<=cnt+1;
+  
+  always@(posedge clk or negedge clk)//异步复位
+    if(rst_n==0)
+      clk_4<=0;
+    else if(cnt==24_999_999)
+      clk_4<=1;
+    else if(cnt==49_999_999)
+      clk_4<=0;
+    else
+      clk_4<=clk_4;
+      
+  always@(posedge clk_4 or negedge clk_4)
+    if(rst_n==0)
+      led<=4'b0001;
+    else
+      led<={led[2:0],led[3]};//位拼接
+  
+  endmodule
+b.测试文件
+timescale 1ns/1ns
+module LSD();
+reg clk;
+reg rst_n;
+reg cnt;
+wire led;
+
+initial
+  begin
+  clk=0;
+  rst_n=0;
+  #100;
+  rst_n=1;
+  end
+  
+  always#5 clk=~clk;
+  LSD LSD_inst(
+  .clk(clk),
+  .rst_n(rst_n),
+  .led(led)
+  );
+  endmodule
